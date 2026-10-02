@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WAF Range</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>WAF Range</h1>
+      <p class="subtitle">Attack your own reverse proxy and watch what gets through.</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="backend-indicator" id="backend-indicator">
+      <span class="dot" id="backend-dot"></span>
+      <span id="backend-label">backend unknown</span>
+    </div>
+
+    <button class="waf-toggle" id="waf-toggle" aria-pressed="true">
+      <span class="waf-toggle-track"><span class="waf-toggle-thumb"></span></span>
+      <span class="waf-toggle-text">
+        <strong id="waf-toggle-state">Protection on</strong>
+        <span class="waf-toggle-hint">Click to flip</span>
+      </span>
+    </button>
+  </div>
+</header>
+
+<section class="metrics" id="metrics">
+  <div class="metric">
+    <span class="metric-value" id="m-total">0</span>
+    <span class="metric-label">requests fired</span>
+  </div>
+  <div class="metric">
+    <span class="metric-value blocked" id="m-blocked">0</span>
+    <span class="metric-label">blocked</span>
+  </div>
+  <div class="metric">
+    <span class="metric-value allowed" id="m-allowed">0</span>
+    <span class="metric-label">allowed through</span>
+  </div>
+  <div class="metric">
+    <span class="metric-value" id="m-rate">0%</span>
+    <span class="metric-label">block rate</span>
+  </div>
+</section>
+
+<section class="flow" aria-label="Request path">
+  <div class="flow-node">
+    <div class="node-icon" id="icon-attacker">🧑</div>
+    <div class="node-label">Attacker</div>
+    <div class="node-sub">This dashboard</div>
+  </div>
+
+  <div class="flow-link">
+    <span class="packet" id="packet-1"></span>
+  </div>
+
+  <div class="flow-node">
+    <div class="node-icon" id="icon-waf">🛡</div>
+    <div class="node-label">WAF gate</div>
+    <div class="node-sub" id="waf-sub">Protection on</div>
+  </div>
+
+  <div class="flow-link">
+    <span class="packet" id="packet-2"></span>
+  </div>
+
+  <div class="flow-node">
+    <div class="node-icon" id="icon-backend">🖥</div>
+    <div class="node-label">Backend</div>
+    <div class="node-sub">Vulnerable app</div>
+  </div>
+</section>
+
+<section class="result-panel" id="result-panel" hidden>
+  <div class="result-head">
+    <span class="result-attack-name" id="result-attack-name"></span>
+    <span class="result-verdict-pill" id="result-verdict-pill"></span>
+  </div>
+  <p class="result-narrative" id="result-narrative"></p>
+  <details class="result-raw">
+    <summary>Raw request &amp; response</summary>
+    <pre id="result-raw-pre"></pre>
+  </details>
+</section>
+
+<main class="layout">
+  <section class="console" aria-label="Attack console">
+    <div class="console-head">
+      <h2>Attack console</h2>
+    </div>
+    <div id="attack-groups" class="attack-groups">
+      <p class="loading-note">Loading attack catalog…</p>
+    </div>
+  </section>
+
+  <section class="log-panel" aria-label="Live request log">
+    <div class="log-head">
+      <h2>Live request log</h2>
+      <button class="ghost-btn" id="reset-btn">Clear log</button>
+    </div>
+    <div class="log-scroll" id="log-scroll">
+      <p class="empty-note" id="log-empty">No requests yet. Fire an attack from the console to see it land here.</p>
+      <table class="log-table" id="log-table" hidden>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>State</th>
+            <th>Method</th>
+            <th>Path</th>
+            <th>WAF</th>
+            <th>Status</th>
+            <th>Latency</th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer class="foot-note">
+  Local lab only — every request here targets the vulnerable app you're running on this machine.
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
