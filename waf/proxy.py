@@ -1,18 +1,17 @@
 """
 WAF PROXY
 =========
-Sits in front of the vulnerable backend (http://127.0.0.1:5000) and
-listens on http://127.0.0.1:8080.
+Sits in front of the vulnerable backend and listens on the assigned port.
 
 Key feature: a protection ON/OFF switch.
   - WAF ON  -> every request is inspected; malicious-looking ones are
-              blocked with 403 before they ever reach the backend.
+               blocked with 403 before they ever reach the backend.
   - WAF OFF -> requests pass straight through untouched (this simulates
-              having no WAF at all, so you can compare before/after).
+               having no WAF at all, so you can compare before/after).
 
 Admin / control endpoints (used by the dashboard, not by attacks):
-  GET  /_waf/status   -> {"enabled": true/false}
-  POST /_waf/toggle   -> flips enabled state, returns new status
+  GET  /_waf/status    -> {"enabled": true/false}
+  POST /_waf/toggle    -> flips enabled state, returns new status
   GET  /_waf/logs      -> last N request log entries (JSON)
   POST /_waf/reset_logs -> clears the in-memory log
 
@@ -28,7 +27,7 @@ from urllib.parse import unquote_plus
 from flask import Flask, request, jsonify, Response
 import requests
 
-BACKEND = "http://127.0.0.1:5000"
+BACKEND = os.environ.get("BACKEND_URL", "http://127.0.0.1:5000")
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "waf_log.jsonl")
 
 app = Flask(__name__)
@@ -56,9 +55,9 @@ SQLI_PATTERNS = [
     r"(\bor\b\s*['\"]?\s*\d+\s*=\s*\d+)",
     r"(\band\b\s*['\"]?\s*\d+\s*=\s*\d+)",
     r"('\s*or\s*'\w*'\s*=\s*'\w*)",
-    r"(--|#|\/\*)",                       # SQL comment markers
+    r"(--|#|\/\*)",                     # SQL comment markers
     r"(;\s*drop\b)",
-    r"(\bsleep\s*\(\s*\d+\s*\))",         # timing-based SQLi
+    r"(\bsleep\s*\(\s*\d+\s*\))",          # timing-based SQLi
     r"(\bxp_cmdshell\b)",
 ]
 
@@ -75,11 +74,6 @@ PATH_TRAVERSAL_PATTERNS = [
     r"\.\./",
     r"\.\.\\",
 ]
-# Deliberately NOT matching raw "%2e%2e%2f" style tokens here: we rely on the
-# single unquote_plus() decode pass (see proxy()) to turn single-encoded
-# traversal into the literal "../" this list already catches. A payload
-# encoded TWICE will still look like "%2f" after that one decode pass and
-# will slip past these two patterns -- that's the intentional bypass to find.
 
 COMPILED_RULES = [
     ("SQLI_SIGNATURE", [re.compile(p, re.IGNORECASE) for p in SQLI_PATTERNS]),
@@ -156,14 +150,6 @@ def proxy(path):
     full_query = request.query_string.decode("utf-8", errors="ignore")
     body_text = request.get_data(as_text=True) or ""
 
-    # Decode ONE pass of URL-encoding before inspecting. This is realistic
-    # (real HTTP clients/browsers percent-encode special characters in query
-    # strings and form bodies, so a WAF that never decodes would miss almost
-    # everything) but it's also deliberately incomplete: a payload that is
-    # percent-encoded TWICE will only get decoded once here and can slip
-    # through. That's a genuine, well-documented WAF bypass technique for
-    # you to find in Phase 5 (bypass -> patch -> re-test) -- try adding a
-    # second decode pass and see what changes.
     decoded_query = unquote_plus(full_query)
     decoded_body = unquote_plus(body_text)
     inspect_blob = f"{path}?{decoded_query} {decoded_body}"
@@ -173,11 +159,9 @@ def proxy(path):
     status_code = None
 
     if STATE["enabled"]:
-        # oversized payload check
         content_length = request.content_length or 0
         if content_length > MAX_BODY_BYTES:
             action, reason, status_code = "BLOCKED", "OVERSIZED_PAYLOAD", 413
-        # rate limiting
         elif check_rate_limit(src_ip):
             action, reason, status_code = "BLOCKED", "RATE_LIMIT", 429
         else:
@@ -196,7 +180,6 @@ def proxy(path):
         })
         return jsonify(resp_body), status_code
 
-    # forward to backend (either WAF is off, or request looked clean)
     try:
         backend_resp = requests.request(
             method=request.method,
@@ -228,5 +211,5 @@ def proxy(path):
 
 
 if __name__ == "__main__":
-    print("WAF proxy running on http://127.0.0.1:8080  (forwarding to backend on :5000)")
-    app.run(host="127.0.0.1", port=8080, debug=False)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
