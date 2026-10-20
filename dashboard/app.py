@@ -1,10 +1,10 @@
 """
 ATTACK DASHBOARD
 ================
-Serves the control-panel UI on http://127.0.0.1:7000
+Serves the control-panel UI.
 
 This process is the one that actually fires the crafted attack
-payloads. It always sends them to the WAF proxy (127.0.0.1:8080),
+payloads. It always sends them to the WAF proxy,
 never straight to the backend -- the whole point is to see the WAF
 catch (or miss) them, and you flip WAF protection on/off from here.
 
@@ -16,12 +16,13 @@ Endpoints consumed by the frontend (static/app.js):
   POST /api/reset          -> clears the WAF's log
   POST /api/attack         -> body {"id": "<attack id>"} -> fires it, returns the result
 """
+import os
 import time
 import requests
 from flask import Flask, request, jsonify, render_template
 
-WAF = "http://127.0.0.1:8080"
-BACKEND_HEALTH = "http://127.0.0.1:5000/health"
+WAF = os.environ.get("WAF_URL", "http://127.0.0.1:8080")
+BACKEND_HEALTH = os.environ.get("BACKEND_URL", "http://127.0.0.1:5000") + "/health"
 
 app = Flask(__name__)
 
@@ -275,5 +276,4 @@ def api_attack():
 
 
 if __name__ == "__main__":
-    print("Attack dashboard running on http://127.0.0.1:7000")
-    app.run(host="127.0.0.1", port=7000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7000)), debug=False)
